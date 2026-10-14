@@ -1,0 +1,11 @@
+# NVIDIA RTX 3060 (12 GB).
+dataset:
+  num_workers: 4
+  camera: {image_size: [256, 704]}
+  lidar: {sweeps: 10, max_points: 250000}
+  radar: {sweeps: 6}
+train:
+  batch_size: 4
+  grad_accum: 1
+  amp: true
+  grad_checkpoint: false

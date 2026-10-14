@@ -1,0 +1,76 @@
+# ---------------------------------------------------------------------------
+# Research experiments. Hypothesis: learned feature selection before
+# LiDAR-Radar fusion improves perception and planning.
+#
+# Every experiment is trained with the identical recipe (stage "joint",
+# same seed, epochs, data) so the only difference is the sensor set and the
+# fusion / feature-selection design.
+# ---------------------------------------------------------------------------
+experiments:
+  A_lidar_only:
+    label: "LiDAR only"
+    short: "LiDAR"
+    description: "Experiment A - LiDAR only"
+    overrides:
+      fusion: {use_camera_bev: false, use_lidar: true, use_radar: false, method: concat, feature_selection: false}
+  B_radar_only:
+    label: "Radar only"
+    short: "Radar"
+    description: "Experiment B - Radar only"
+    overrides:
+      fusion: {use_camera_bev: false, use_lidar: false, use_radar: true, method: concat, feature_selection: false}
+  C_lidar_radar_concat:
+    label: "LiDAR + Radar"
+    short: "L+R concat"
+    description: "Experiment C - LiDAR + Radar, simple concatenation"
+    overrides:
+      fusion: {use_camera_bev: false, use_lidar: true, use_radar: true, method: concat, feature_selection: false}
+  D_lidar_radar_attention:
+    label: "LiDAR + Radar + Attention"
+    short: "L+R attention"
+    description: "Experiment D - LiDAR + Radar, attention-gated fusion (no feature selection)"
+    overrides:
+      fusion: {use_camera_bev: false, use_lidar: true, use_radar: true, method: attention_gated, feature_selection: false}
+  E_lidar_radar_fs:
+    label: "LiDAR + Radar + Feature Selection"
+    short: "L+R + FS"
+    description: "Experiment E - LiDAR + Radar, feature selection + attention fusion"
+    overrides:
+      fusion: {use_camera_bev: false, use_lidar: true, use_radar: true, method: attention_gated, feature_selection: true}
+  F_cam_lidar_radar_fs:
+    label: "Camera + LiDAR + Radar + Feature Selection"
+    short: "Cam+L+R + FS"
+    description: "Experiment F - Camera BEV + LiDAR + Radar, camera-guided feature selection + fusion (proposed)"
+    overrides:
+      fusion: {use_camera_bev: true, use_lidar: true, use_radar: true, method: attention_gated, feature_selection: true}
+  # Additional sensor combinations requested for the ablation table.
+  G_cam_lidar_fs:
+    label: "Camera + LiDAR"
+    short: "Cam+L + FS"
+    description: "Camera BEV + LiDAR with feature selection"
+    overrides:
+      fusion: {use_camera_bev: true, use_lidar: true, use_radar: false, method: attention_gated, feature_selection: true}
+  H_cam_radar_fs:
+    label: "Camera + Radar"
+    short: "Cam+R + FS"
+    description: "Camera BEV + Radar with feature selection"
+    overrides:
+      fusion: {use_camera_bev: true, use_lidar: false, use_radar: true, method: attention_gated, feature_selection: true}
+  I_cam_lidar_radar_attention:
+    label: "Camera + LiDAR + Radar"
+    short: "Cam+L+R attention"
+    description: "Camera BEV + LiDAR + Radar, attention fusion without feature selection"
+    overrides:
+      fusion: {use_camera_bev: true, use_lidar: true, use_radar: true, method: attention_gated, feature_selection: false}
+
+# Experiments run by `python main.py ablation` when --experiments is not given.
+default_run: [A_lidar_only, B_radar_only, C_lidar_radar_concat, D_lidar_radar_attention, E_lidar_radar_fs, F_cam_lidar_radar_fs]
+
+# Dashboard "Fusion Method" dropdown -> experiment mapping.
+dashboard_methods:
+  "1. LiDAR Only": A_lidar_only
+  "2. Radar Only": B_radar_only
+  "3. LiDAR + Radar": C_lidar_radar_concat
+  "4. LiDAR + Radar + Attention": D_lidar_radar_attention
+  "5. LiDAR + Radar + Feature Selection": E_lidar_radar_fs
+  "6. Camera + LiDAR + Radar + Feature Selection": F_cam_lidar_radar_fs

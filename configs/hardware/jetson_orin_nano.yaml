@@ -1,0 +1,12 @@
+# NVIDIA Jetson Orin Nano (8 GB shared memory) - inference / demo only.
+# Training is not practical on this device; use it to run the dashboard with a trained checkpoint.
+dataset:
+  num_workers: 2
+  camera: {image_size: [128, 352]}
+  lidar: {sweeps: 3, max_points: 100000}
+  radar: {sweeps: 3}
+train:
+  batch_size: 1
+  grad_accum: 4
+  amp: true
+  grad_checkpoint: true

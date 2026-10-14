@@ -1,0 +1,8 @@
+# Copy to configs/local.yaml and adapt. local.yaml is git-ignored.
+dataset:
+  root: "/path/to/nuscenes"     # folder containing samples/, sweeps/, maps/, v1.0-mini/
+  # version: "v1.0-trainval"
+  # train_split: "train"
+  # val_split: "val"
+runtime:
+  hardware_profile: gtx1650     # gtx1650 | rtx3060 | rtx4060 | rtx4070 | jetson_orin_nano

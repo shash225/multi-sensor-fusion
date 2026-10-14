@@ -1,0 +1,26 @@
+# Tested on Windows 11, Python 3.11, NVIDIA driver 566 (CUDA 12.7), GTX 1650.
+# CUDA wheels of PyTorch come from the PyTorch index (cu126 works with any driver >= 525).
+--extra-index-url https://download.pytorch.org/whl/cu126
+torch==2.14.1
+torchvision==0.29.1
+
+numpy>=1.26
+pyyaml>=6.0
+opencv-python>=4.9
+matplotlib>=3.8
+pillow>=10.0
+pandas>=2.0
+tqdm>=4.66
+streamlit>=1.40
+altair>=5.0
+pytest>=8.0
+
+# Runtime dependencies of the (optional) official nuScenes devkit. The devkit itself pins an
+# old matplotlib that has no Python 3.11 wheel, so install it separately WITHOUT deps:
+#   pip install nuscenes-devkit --no-deps
+pyquaternion>=0.9
+shapely>=2.0
+descartes>=1.1
+fire>=0.5
+cachetools>=5.0
+scikit-learn>=1.3

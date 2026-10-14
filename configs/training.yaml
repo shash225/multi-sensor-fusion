@@ -1,0 +1,130 @@
+# ---------------------------------------------------------------------------
+# Runtime, optimisation, losses and the 7-stage training curriculum.
+# ---------------------------------------------------------------------------
+runtime:
+  seed: 42
+  deterministic: false
+  device: "auto"                # auto | cuda | cpu
+  hardware_profile: null        # gtx1650 | rtx3060 | rtx4060 | rtx4070 | jetson_orin_nano
+  default_experiment: null      # e.g. F_cam_lidar_radar_fs (configs/ablation.yaml)
+  output_dir: "outputs"
+  checkpoint_dir: "checkpoints"
+
+train:
+  batch_size: 2
+  grad_accum: 1                 # effective batch = batch_size * grad_accum
+  epochs: 20
+  lr: 2.0e-4
+  weight_decay: 0.01
+  amp: true                     # fp16 mixed precision on CUDA
+  grad_clip: 35.0
+  grad_checkpoint: false        # trade compute for memory in the image backbone / BEV backbone
+  warmup_iters: 100
+  log_interval: 20
+  val_interval: 1               # epochs between validations
+  max_val_samples: null         # cap validation samples for quick runs (null = all)
+  max_train_samples: null
+
+eval:
+  score_threshold: 0.1
+  official_devkit: false        # also run the official nuScenes DetectionEval (needs nuscenes-devkit)
+
+# L_total = λ1 L_detection + λ2 L_trajectory + λ3 L_feature_selection + λ4 L_fusion (+ λ5 L_depth)
+loss:
+  lambda_detection: 1.0
+  lambda_trajectory: 1.0
+  lambda_feature_selection: 0.5
+  lambda_fusion: 0.25
+  lambda_depth: 1.0
+  detection:
+    heatmap: 1.0                # classification (Gaussian focal loss)
+    center: 0.25                # sub-cell offset + height
+    bbox: 0.25                  # log-size regression
+    orientation: 0.25           # sin/cos yaw
+    velocity: 0.25
+  feature_selection:
+    coverage: 1.0               # selected features must cover objects (foreground guidance)
+    sparsity: 0.5               # keep-ratio regulariser
+    binarization: 0.1           # push gates towards 0/1 (interpretable masks)
+  trajectory:
+    regression: 1.0             # L1 to the logged human trajectory
+    collision: 2.0              # occupancy under the ego footprint (GT future occupancy)
+    smoothness: 0.1             # squared second differences
+    goal: 0.5                   # final-point / progress term
+
+# ---------------------------------------------------------------------------
+# Training curriculum. Each stage = model overrides + trainable modules + losses.
+# Stage checkpoints: checkpoints/<experiment>/<stage>/{best,last}.pt
+# Shared single-sensor stages (shared: true) live in checkpoints/_shared/<stage>/.
+# ---------------------------------------------------------------------------
+stages:
+  camera_bev:
+    description: "Stage 1 - Camera -> BEV (LSS + depth supervision, camera-only detection probe)"
+    shared: true
+    overrides:
+      fusion: {use_camera_bev: true, use_lidar: false, use_radar: false, feature_selection: false, method: concat}
+    losses: [detection, depth]
+    frozen: []
+    init_from: []
+    epochs: 12
+  lidar:
+    description: "Stage 2 - LiDAR encoder (PointPillars -> BEV)"
+    shared: true
+    overrides:
+      fusion: {use_camera_bev: false, use_lidar: true, use_radar: false, feature_selection: false, method: concat}
+    losses: [detection]
+    frozen: []
+    init_from: []
+    epochs: 12
+  radar:
+    description: "Stage 3 - Radar encoder (velocity-preserving radar pillars -> BEV)"
+    shared: true
+    overrides:
+      fusion: {use_camera_bev: false, use_lidar: false, use_radar: true, feature_selection: false, method: concat}
+    losses: [detection]
+    frozen: []
+    init_from: []
+    epochs: 12
+  fusion:
+    description: "Stage 4 - Feature selection + fusion on frozen sensor encoders"
+    losses: [detection, feature_selection, fusion]
+    frozen: [camera_bev, lidar_encoder, radar_encoder]
+    init_from:
+      - {stage: camera_bev, prefixes: [camera_bev.]}
+      - {stage: lidar, prefixes: [lidar_encoder., bev_backbone., det_head.]}
+      - {stage: radar, prefixes: [radar_encoder.]}
+    epochs: 10
+  detection:
+    description: "Stage 5 - Detection fine-tuning (LiDAR/radar encoders unfrozen)"
+    losses: [detection, feature_selection, fusion]
+    frozen: [camera_bev]
+    init_from:
+      - {stage: fusion}
+    epochs: 8
+    lr_scale: 0.5
+  trajectory:
+    description: "Stage 6 - Learned trajectory planner on frozen perception"
+    losses: [trajectory]
+    trainable_only: [plan_head]
+    init_from:
+      - {stage: detection}
+    epochs: 10
+    overrides:
+      dataset: {augmentation: {rot_range_deg: [0.0, 0.0], flip_x_prob: 0.0}}
+  end_to_end:
+    description: "Stage 7 - Joint fine-tuning of perception + planning"
+    losses: [detection, trajectory, feature_selection, fusion, depth]
+    frozen: [camera_bev.backbone]
+    init_from:
+      - {stage: trajectory}
+    epochs: 6
+    lr_scale: 0.25
+    overrides:
+      dataset: {augmentation: {rot_range_deg: [0.0, 0.0], flip_x_prob: 0.0}}
+  joint:
+    description: "Single-stage joint training from scratch (used for the fair ablation study)"
+    losses: [detection, trajectory, feature_selection, fusion, depth]
+    frozen: []
+    init_from: []
+    overrides:
+      dataset: {augmentation: {rot_range_deg: [0.0, 0.0], flip_x_prob: 0.0}}

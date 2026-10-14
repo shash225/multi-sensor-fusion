@@ -1,0 +1,74 @@
+# ---------------------------------------------------------------------------
+# Adverse-weather testing (evaluation only — never used for training).
+#
+# Read only by the weather tools (evaluation/adverse_weather.py,
+# datasets/weather.py). It is NOT part of the normal config merge, so normal
+# training / evaluation / the dashboard are unaffected.
+#
+# Two kinds of test data, always reported separately:
+#   * real:      nuScenes scenes whose ORIGINAL scene description mentions the
+#                weather (no severity is invented; see real_weather below).
+#   * synthetic: physically-motivated corruptions of clear-weather mini_val
+#                frames. Every output produced with them is labelled SYNTHETIC.
+# ---------------------------------------------------------------------------
+weather:
+  # ---------------------------------------------------------------- synthetic
+  # Fog: visibility V = meteorological optical range; extinction β = 3.912 / V
+  # (Koschmieder). Rain: rain rate R in mm/h (AMS: light ≤ 2.5, moderate
+  # 2.5–7.6, heavy > 7.6 mm/h).
+  conditions:
+    clear:         {kind: clear,  label: "Clear (no corruption)"}
+    light_fog:     {kind: fog,    visibility_m: 200.0, label: "Light fog (V = 200 m)"}
+    dense_fog:     {kind: fog,    visibility_m: 50.0,  label: "Dense fog (V = 50 m)"}
+    light_rain:    {kind: rain,   rain_rate_mmh: 2.5,  label: "Light rain (2.5 mm/h)"}
+    moderate_rain: {kind: rain,   rain_rate_mmh: 7.5,  label: "Moderate rain (7.5 mm/h)"}
+    heavy_rain:    {kind: rain,   rain_rate_mmh: 25.0, label: "Heavy rain (25 mm/h)"}
+  groups:
+    fog: [light_fog, dense_fog]
+    rain: [light_rain, moderate_rain, heavy_rain]
+    all: [clear, light_fog, dense_fog, light_rain, moderate_rain, heavy_rain]
+  seed: 1234                      # corruption RNG seed (combined with the sample index -> reproducible)
+
+  camera:
+    airlight: 0.82                # fog colour (Koschmieder airlight, linear RGB in [0, 1])
+    ground_z: 0.0                 # ego frame ground height (nuScenes ego origin is on the ground)
+    sky_distance_m: 1000.0        # distance assigned to rays that never hit the ground
+    lidar_depth_cells_per_height: 32  # LiDAR depth grid (cells over the image height); gaps -> ground plane -> sky
+    # Rain: optical extinction α[dB/km] = 1.45 · R^0.64 (asymptotic relation quoted in LISA, Kilic et al. 2021)
+    rain_extinction_coef: 1.45
+    rain_extinction_exp: 0.64
+    rain_streaks_per_mmh: 60      # visual approximation (not photometrically calibrated)
+    rain_streak_alpha: 0.22
+    rain_blur_per_mmh: 0.025      # Gaussian blur σ in pixels per mm/h (wet optics), at network resolution
+    rain_contrast_loss_per_mmh: 0.008
+
+  lidar:
+    # mini-LISA detection rule (Kilic et al. 2021): a return survives if
+    #   ρ · exp(-2 α R) / R² ≥ 0.9 / R_max²
+    # nuScenes intensity is not calibrated reflectivity, so ρ is the intensity
+    # normalised to the frame median, floored at the clear-weather detection
+    # limit (a point that was observed must have been detectable).
+    max_range_m: 70.0             # nominal HDL-32E range used for the detection threshold
+    sensor_height_m: 1.84         # used only for the backscatter clutter height
+    # Fog backscatter: spurious returns close to the sensor (qualitative,
+    # Bijelic et al. 2020 / Hahner et al. 2021). Count NOT calibrated.
+    backscatter_points_per_beta: 4000.0
+    backscatter_max_range_m: 8.0
+
+  radar:
+    # Rain: ITU-R P.838-3 specific attenuation γ = k · R^α [dB/km] at 77 GHz (horizontal pol.)
+    rain_k: 1.0733
+    rain_alpha: 0.7104
+    # Fog: attenuation at 77 GHz over ≤ 100 m is far below 1 dB (ITU-R P.840) -> radar unchanged.
+    # Points whose attenuated RCS falls below the frame's minimum observed RCS
+    # (proxy for the unknown detection threshold) are removed.
+
+  # ---------------------------------------------------------------- real data
+  # Tags derived ONLY from keywords in the original nuScenes scene description.
+  # The description text is always stored next to the tag.
+  real_weather:
+    rain_keywords: ["rain"]
+    exclude_keywords: ["after rain"]   # wet road, no precipitation -> tagged wet_road, not rain
+    wet_keywords: ["after rain", "wet"]
+    night_keywords: ["night"]
+    fog_keywords: ["fog", "mist"]

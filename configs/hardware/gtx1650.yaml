@@ -1,0 +1,15 @@
+# NVIDIA GTX 1650 (4 GB, Turing TU117, no tensor cores). Primary target: nuScenes-mini.
+# Measured with scripts/smoke_test.py (proposed model F, batch 1, 128x352 images):
+#   training peak 3.2 GB (fp32 + gradient checkpointing), inference 0.77 GB / ~100 ms.
+# fp16 is DISABLED: with cuDNN 9.10 this GPU returns NaN for fp16 3x3 convolutions with
+# 256 input channels, and fp16 was also 3.4x slower than fp32 here (no tensor cores).
+dataset:
+  num_workers: 2
+  camera: {image_size: [128, 352]}
+  lidar: {sweeps: 5, max_points: 150000}
+  radar: {sweeps: 5}
+train:
+  batch_size: 1
+  grad_accum: 4
+  amp: false
+  grad_checkpoint: true

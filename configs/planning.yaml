@@ -1,0 +1,56 @@
+# ---------------------------------------------------------------------------
+# Trajectory planning (baseline classical planner + learned planner).
+# ---------------------------------------------------------------------------
+planning:
+  planner: "baseline"           # baseline | learned | hybrid (learned, verified by the baseline's collision check)
+  horizon: 6                    # future steps (nuScenes key-frames are 2 Hz)
+  dt: 0.5                       # seconds per step -> 3 s horizon
+  command_threshold: 2.0        # |y_T| (m) above which the navigation command is LEFT / RIGHT
+
+  ego:                          # nuScenes Renault Zoe; ego frame origin = rear-axle centre
+    length: 4.084
+    width: 1.85
+    rear_axle_to_center: 1.4
+    wheelbase: 2.588
+    max_steer: 0.6              # rad
+    max_accel: 3.0
+    max_decel: 6.0
+    max_speed: 20.0
+
+  collision_classes: [car, truck, construction_vehicle, bus, trailer, motorcycle, bicycle, pedestrian]
+
+  grid:                         # planning occupancy grid (ego frame)
+    x_range: [-10.0, 60.0]
+    y_range: [-30.0, 30.0]
+    resolution: 0.5
+
+  occupancy:
+    min_score: 0.3              # detections below this score are ignored by the planner
+    inflation: 0.3              # extra safety margin around obstacles (m)
+    use_lidar_obstacles: true   # non-ground LiDAR points become a soft cost (covers missed detections)
+    lidar_z_band: [0.4, 2.5]
+    lidar_cost: 3.0
+    map_prior: false            # use the nuScenes raster map prior as an off-road cost (loads large PNGs)
+    map_cost: 2.0
+
+  astar:
+    lookahead_min: 6.0          # goal distance bounds (m); the goal scales with speed * horizon
+    lookahead_max: 45.0
+    turn_angle_deg: 35.0        # goal bearing for LEFT / RIGHT commands
+    obstacle_clearance_cost: 4.0
+    max_expansions: 60000
+
+  speed:
+    accel_candidates: [-6.0, -4.0, -2.5, -1.5, -0.75, 0.0, 0.5, 1.0, 1.5]
+    comfort_weight: 0.05
+    progress_weight: 1.0
+
+  mpc:                          # iLQR tracking on a kinematic bicycle model
+    dt: 0.1
+    iterations: 12
+    w_pos: 4.0
+    w_yaw: 1.0
+    w_speed: 0.5
+    w_accel: 0.1
+    w_steer: 2.0
+    w_steer_rate: 4.0

@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+configs/local.yaml
+outputs/
+checkpoints/**/*.pt
+checkpoints/**/*.tmp
+*.mp4
+.pytest_cache/
+
+# generated documentation assets / logs
+docs/handover/build/
+*.log

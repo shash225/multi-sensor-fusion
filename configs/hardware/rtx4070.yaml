@@ -1,0 +1,13 @@
+# NVIDIA RTX 4070 (12 GB).
+dataset:
+  num_workers: 6
+  camera: {image_size: [256, 704]}
+  lidar: {sweeps: 10, max_points: 300000}
+  radar: {sweeps: 6}
+model:
+  camera_bev: {backbone: resnet34}
+train:
+  batch_size: 4
+  grad_accum: 1
+  amp: true
+  grad_checkpoint: false

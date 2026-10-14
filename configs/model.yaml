@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------
+# Network architecture. Modalities are switched on/off in fusion.yaml.
+# ---------------------------------------------------------------------------
+model:
+  camera_bev:                     # Lift-Splat-Shoot + BEVDepth-style depth net
+    backbone: resnet18            # resnet18 | resnet34 | resnet50
+    pretrained: true              # ImageNet weights from torchvision (falls back to random init offline)
+    frozen_stages: 1              # freeze stem + layer1
+    norm_eval: true               # keep backbone BatchNorm in eval mode (small batches)
+    neck_channels: 256
+    feature_stride: 16
+    depth_bins: [1.0, 60.0, 1.0]  # [min, max, step] metres -> 59 bins
+    out_channels: 64
+    camera_aware_depth: true      # condition depth/context on intrinsics + extrinsics
+    bev_refine_blocks: 2
+
+  lidar_encoder:                  # dynamic PointPillars (no max-points-per-pillar cap)
+    pillar_channels: [32, 64]
+    out_channels: 64              # includes 4 explicit raster channels
+    num_res_blocks: 2
+    raster_channels: true         # density / max height / mean height / intensity
+
+  radar_encoder:                  # dynamic pillars + dilated context for sparse radar
+    pillar_channels: [32, 64]
+    out_channels: 64              # includes 5 explicit raster channels
+    dilations: [1, 2, 4]
+    raster_channels: true         # density / vx / vy / rcs / time-lag (velocity preserved)
+
+  bev_backbone:                   # SECOND-FPN on the fused BEV
+    layer_nums: [3, 5]
+    layer_strides: [2, 2]
+    num_filters: [128, 256]
+    upsample_strides: [1, 2]
+    num_upsample_filters: [128, 128]
+
+  detection_head:                 # CenterPoint-style centre heatmap head
+    head_channels: 64
+    out_stride: 2                 # relative to the BEV grid -> 100 x 100 at 1.0 m
+    min_radius: 2
+    gaussian_overlap: 0.1
+    max_objects: 500
+    code_weights: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2]   # dx dy z l w h sin cos vx vy
+    score_threshold: 0.1
+    max_detections: 300
+    nms_radius:                   # circle NMS radius in metres (0 = only 3x3 max-pool NMS)
+      car: 1.0
+      truck: 1.5
+      construction_vehicle: 1.5
+      bus: 2.0
+      trailer: 2.0
+      barrier: 0.5
+      motorcycle: 0.5
+      bicycle: 0.5
+      pedestrian: 0.25
+      traffic_cone: 0.25
+
+  trajectory_head:                # learned planner (Stage 6), replaces the baseline when planner=learned
+    enabled: true
+    hidden: 128
+    num_heads: 4

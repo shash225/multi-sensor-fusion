@@ -1,0 +1,68 @@
+# ---------------------------------------------------------------------------
+# nuScenes dataset configuration.
+# Paths are never hard-coded in Python. Set the dataset root here, in
+# configs/local.yaml (git-ignored, machine specific), with the NUSCENES_ROOT
+# environment variable, or on the command line: --set dataset.root=/data/nuscenes
+# ---------------------------------------------------------------------------
+dataset:
+  root: "${env:NUSCENES_ROOT,/path/to/nuscenes}"
+  version: "v1.0-mini"          # v1.0-mini | v1.0-trainval
+  train_split: "mini_train"     # mini_train | train
+  val_split: "mini_val"         # mini_val | val
+  cache_dir: "outputs/cache"    # pre-computed sample "infos" (relative = project root)
+  num_workers: 2
+  pin_memory: true
+
+  lidar_channel: LIDAR_TOP
+  cameras: [CAM_FRONT_LEFT, CAM_FRONT, CAM_FRONT_RIGHT, CAM_BACK_LEFT, CAM_BACK, CAM_BACK_RIGHT]
+  radars: [RADAR_FRONT, RADAR_FRONT_LEFT, RADAR_FRONT_RIGHT, RADAR_BACK_LEFT, RADAR_BACK_RIGHT]
+  max_cached_lidar_sweeps: 10   # sweeps stored in the info cache (the loader may use fewer)
+  max_cached_radar_sweeps: 6
+  history_frames: 4             # past key-frames kept for visualisation (ego trail)
+
+  camera:
+    image_size: [256, 704]      # network input (H, W); hardware profiles may lower it
+    resize_jitter: [0.94, 1.11] # train-time random resize around the base scale
+    bottom_crop_jitter: [0.0, 0.22]
+    rotate_deg: 5.4
+    flip: true
+    depth_gt: true              # LiDAR-projected depth for BEVDepth-style supervision
+
+  lidar:
+    sweeps: 10                  # multi-sweep accumulation (adds a time-lag channel)
+    max_points: 250000          # random subsampling above this
+    remove_close_radius: 1.5    # remove ego-vehicle returns (metres, xy)
+
+  radar:
+    sweeps: 6
+    # nuScenes-devkit default filters (see RadarPointCloud.default_filters()).
+    filters:
+      invalid_states: [0]
+      dynprop_states: [0, 1, 2, 3, 4, 5, 6]
+      ambig_states: [3]
+
+  augmentation:                 # BEV-level augmentation, applied to ALL modalities + labels
+    enabled: true
+    flip_y_prob: 0.5            # mirror left/right (driving command is recomputed)
+    flip_x_prob: 0.0            # mirror forward/backward (breaks planning; keep 0 when planning)
+    rot_range_deg: [-22.5, 22.5]
+    scale_range: [0.95, 1.05]
+    modality_dropout:           # simulate sensor failure during training
+      camera: 0.0
+      lidar: 0.0
+      radar: 0.0
+
+  gt_filter:
+    min_points: 1               # boxes with no LiDAR+radar returns are ignored (nuScenes eval rule)
+
+# ---------------------------------------------------------------------------
+# Shared Bird's-Eye-View grid (ego frame at the LIDAR_TOP key-frame).
+# x forward, y left. resolution 0.5 m -> 200 x 200 cells.
+# ---------------------------------------------------------------------------
+bev:
+  x_range: [-50.0, 50.0]
+  y_range: [-50.0, 50.0]
+  z_range: [-5.0, 5.0]
+  resolution: 0.5
+
+classes: [car, truck, construction_vehicle, bus, trailer, barrier, motorcycle, bicycle, pedestrian, traffic_cone]

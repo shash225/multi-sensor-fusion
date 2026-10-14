@@ -1,0 +1,24 @@
+# ---------------------------------------------------------------------------
+# Sensor fusion + learned feature selection (the research component).
+# ---------------------------------------------------------------------------
+fusion:
+  method: "attention_gated"     # concat | attention_gated   (registry: models/fusion/registry.py)
+  use_camera_bev: true
+  use_lidar: true
+  use_radar: true
+  feature_selection: true       # Camera-Guided Cross-Modal Feature Selection before fusion
+  out_channels: 128
+  deep_supervision: true        # auxiliary per-modality heatmaps (L_fusion)
+
+  selection:
+    camera_guided: true         # camera BEV conditions the LiDAR/radar gates
+    channel_reduction: 4        # cross-modal squeeze-excitation bottleneck
+    spatial_hidden: 32
+    spatial_kernel: 7           # CBAM-style spatial attention kernel
+    gate_mode: "soft"           # soft | hard_concrete (stochastic straight-through binary masks)
+    temperature: 0.67           # hard_concrete temperature
+    init_open: 2.0              # final-layer bias: gates start open (sigmoid(2) = 0.88)
+    threshold: 0.5              # a feature counts as "selected" when its gate > threshold
+    target_keep_ratio:          # sparsity targets for L_feature_selection
+      spatial: 0.35
+      channel: 0.75

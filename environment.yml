@@ -1,0 +1,9 @@
+# conda env create -f environment.yml && conda activate msf_fusion && pip install nuscenes-devkit --no-deps
+name: msf_fusion
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - -r requirements.txt
